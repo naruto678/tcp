@@ -2,10 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"net"
-	"bytes"
 	"os"
 	"time"
 ) 
@@ -17,25 +17,32 @@ func main(){
 		if len(os.Args)<3 {
 			panic("client name must be specified")
 		}
-		runAsClient()
 	}
+		runAsClient()
 }
 
 func handleConnection(conn net.Conn){
 
-	decoder := gob.NewDecoder(conn)
-
 	for {
 		request := ClientRequest{}
+		response := ClientRequest{Name: "server"}
+		decoder := gob.NewDecoder(conn)
 		err := decoder.Decode(&request)
 		if err!=nil{
 			fmt.Println("Got error while decoding ", err)
 			break
 		}
-		fmt.Printf("Received %s\n", request)
-
+		if request.Content == ".quit"{
+			response.Content = "Bye!!!"
+			conn.Write(response.Serialize())
+			break
+		} else {
+			fmt.Println(request)
+			response.Content = "Received"
+			conn.Write(response.Serialize())
+		}
 	}
-	(conn).Close()
+	conn.Close()
 }
 
 
@@ -59,27 +66,44 @@ func runAsClient(){
 	client_name := os.Args[2]
 	fmt.Println("Running as a client ", client_name)
 	conn, err := net.Dial("tcp", ":8080")
+	defer conn.Close()
 	if err!=nil{
 		fmt.Println(err)
 	}
 	sysReader := bufio.NewReader(os.Stdin)
 	connWriter := bufio.NewWriter(conn)
 
+
 	time.Sleep(1*time.Second)
 	request := ClientRequest{
 		Name : client_name,
 	}
+
+	rcvMessage := ClientRequest{}
+
 	for{
 		fmt.Printf(">> ")
 		bct, err := sysReader.ReadBytes('\n')
+		bct = bct[:len(bct)-1]
 		request.Content = string(bct)
 		if err!=nil{
 			fmt.Println(err)
 		}
 		connWriter.Write(request.Serialize())
 		err = connWriter.Flush()
-		fmt.Println(err)
+		if err!=nil{
+			fmt.Println(err)
+		}
+		decoder := gob.NewDecoder(conn)
+		err = decoder.Decode(&rcvMessage)
+		if err!=nil{
+			fmt.Println("Received nothing yet")
+			fmt.Println(err)
+		} else {
+			fmt.Println("Received ", rcvMessage)
+		}
 	}
+
 }
 
 type ClientRequest struct{
