@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 ) 
 func main(){
 	switch os.Args[1]{
@@ -37,7 +36,6 @@ func handleConnection(conn net.Conn){
 			conn.Write(response.Serialize())
 			break
 		} else {
-			fmt.Println(request)
 			response.Content = "Received"
 			conn.Write(response.Serialize())
 		}
@@ -50,6 +48,7 @@ func runAsServer(){
 	fmt.Println("Running as a server")
 	l, err := net.Listen("tcp",":8080")
 	if err!=nil{
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
@@ -69,12 +68,10 @@ func runAsClient(){
 	defer conn.Close()
 	if err!=nil{
 		fmt.Println(err)
+		os.Exit(1)
 	}
 	sysReader := bufio.NewReader(os.Stdin)
 	connWriter := bufio.NewWriter(conn)
-
-
-	time.Sleep(1*time.Second)
 	request := ClientRequest{
 		Name : client_name,
 	}
@@ -97,10 +94,7 @@ func runAsClient(){
 		decoder := gob.NewDecoder(conn)
 		err = decoder.Decode(&rcvMessage)
 		if err!=nil{
-			fmt.Println("Received nothing yet")
 			fmt.Println(err)
-		} else {
-			fmt.Println("Received ", rcvMessage)
 		}
 	}
 
@@ -110,8 +104,6 @@ type ClientRequest struct{
 	Name string
 	Content string
 }
-
-
 
 func (cr ClientRequest) String() string{
 	return fmt.Sprintf("ClientRequest(name = %s, content = %s)", cr.Name, cr.Content)
